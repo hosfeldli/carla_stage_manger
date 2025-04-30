@@ -1,6 +1,6 @@
 # Carla Stage Manager
 
-`carla_stage_manager` is a project designed to enable manual driving in the Carla simulator using a Logitech steering wheel and pedal set.
+`carla_stage_manager` is a project designed to enable manual driving in the CARLA simulator using a Logitech steering wheel and pedal set on Linux systems for a realistic driving experience.
 
 ---
 
@@ -9,6 +9,7 @@
 - [Overview](#overview)
 - [Carla Setup](#carla-setup)
 - [Environment Setup](#environment-setup)
+- [Scene Manager](#scene-manager)
 - [Manual Driving with Logitech Steering Wheel and Pedal](#manual-driving-with-logitech-steering-wheel-and-pedal)
 - [Usage](#usage)
 - [Troubleshooting](#troubleshooting)
@@ -19,36 +20,31 @@
 
 ## Overview
 
-This project integrates manual driving controls into the Carla autonomous driving simulator, specifically supporting Logitech steering wheel and pedal sets for an immersive driving experience. All of this is wrapped up into the scene manager that interfaces with SUMO, CARLA, manual controls, and logging capabilities.
+This project integrates manual driving controls into the CARLA autonomous driving simulator, specifically supporting Logitech steering wheel and pedal sets on Linux. It offers a comprehensive scene manager that interfaces with CARLA, SUMO co-simulation, manual controls, and logging capabilities, making it an effective toolset for autonomous vehicle research and development on Linux platforms.
 
 ---
 
 ## Carla Setup
 
-1. **Download Carla Simulator**
+1. **Download CARLA Simulator**
 
-   Visit the [Carla Releases](https://github.com/carla-simulator/carla/releases), this was built on Version 0.9.15
+   Download version 0.9.15 or later from the official [CARLA Releases page](https://github.com/carla-simulator/carla/releases).
 
-2. **Install Carla**
+2. **Install CARLA on Linux**
 
-   - For Linux or Windows, follow the installation instructions provided in the official [Carla Documentation](https://carla.readthedocs.io/en/latest/start_quickstart/).
-   - Ensure that your system meets the necessary hardware requirements to run Carla smoothly.
+   Follow the Linux installation instructions provided in the official [CARLA Quickstart Guide](https://carla.readthedocs.io/en/latest/start_quickstart/).
 
-3. **Run Carla Simulator**
+3. **Run CARLA Simulator**
 
-   After installation, start the Carla simulator server:
+   Launch CARLA server on Linux:
 
    ```bash
    ./CarlaUE4.sh
    ```
-   or on Windows:
-   ```cmd
-   CarlaUE4.exe
-   ```
 
-4. **Verify Carla is running**
+4. **Verify CARLA is Running**
 
-   Ensure Carla is running properly by connecting to the simulator via a Python client or the built-in manual control.
+   Confirm the server is running by connecting via a Python client or using the built-in manual control before running this project.
 
 ---
 
@@ -60,158 +56,144 @@ This project integrates manual driving controls into the Carla autonomous drivin
    git clone https://github.com/hosfeldli/carla_stage_manager.git
    cd carla_stage_manager
    ```
-   
-2. **Install Dependencies**
+
+2. **Install Python Dependencies**
 
    ```bash
    pip install -r requirements.txt
    ```
 
+3. **Verify Logitech Drivers**
+
+   Ensure your Logitech steering wheel and pedals are connected, drivers are installed, and devices are recognized on your Linux system.
+
 ---
+
 ## Scene Manager
 
-The `CarlaSceneManager` is a PyQt5-based GUI application that provides a comprehensive control interface for managing a CARLA simulation scene. It offers detailed visualization and interaction capabilities to manipulate the simulation environment, spawn and control vehicles, and manage AI behavior.
+The `CarlaSceneManager` is a PyQt5-based graphical user interface that enables detailed control over the CARLA simulation environment including visualization, actor management, AI toggling, and manual driving setup.
 
 ### Key Features
 
-- **CARLA Client Initialization**: Connects to the CARLA server at `127.0.0.1:2000` and loads the current world and map.
-- **World Cleanup**: Automatically cleans up the simulation world by removing all vehicles, pedestrians, and static objects to start fresh.
-- **Spawn Point Selection**: Allows users to select and visualize spawn points on the map to place vehicles or static objects.
-- **Map Visualization**:
-  - Displays sidewalks, buildings, static props, spawn points, and vehicles on a scalable map.
-  - Highlights the selected spawn point and ego vehicle.
-  - Shows vehicle directions and speed with velocity arrows.
-  - Displays traffic lights state and stop lines.
-- **Vehicle Management**:
-  - Spawn vehicles (random or selected blueprint) at chosen spawn points.
-  - Spawn an ego vehicle with the "hero" role.
-  - Enable AI autopilot on selected vehicles or all vehicles except ego.
-  - Follow a vehicle with a camera sensor that is visualized on the map.
-  - Maintain a vehicle list with details such as ID, type, speed, and location.
-- **AI Control**:
-  - Toggle AI autopilot on selected or all vehicles.
-  - Traffic manager integration for speed and lane management.
-- **SUMO Traffic Control Integration**: Supports launching SUMO co-simulation for traffic synchronization.
-- **Manual Control Support**: Launches a manual control script in a separate process for driving the ego vehicle interactively.
+- Connects to CARLA server at `127.0.0.1:2000` and loads the simulation world and map.
+- Cleans up the simulation world by removing all existing vehicles, pedestrians, and static objects.
+- Allows selecting spawn points directly on an interactive map for precise vehicle and object placement.
+- Visualizes sidewalks, buildings, props, vehicles (including ego vehicle), traffic lights, and cameras on a scalable and zoomable map interface.
+- Supports spawning vehicles or static props, including random vehicle spawns.
+- Spawns an ego vehicle with the designated "hero" role for manual control.
+- Enables AI autopilot on selected vehicles or all vehicles except ego.
+- Follows selected vehicles with an attached camera sensor, showing vehicle perspective.
+- Launches manual driving control in a separate process to interactively drive the ego vehicle.
+- Integrates with SUMO for traffic co-simulation and synchronization.
+- Provides clean shutdown by safely destroying all actors and sensors on exit.
 
 ### Technical Details
 
-- Uses CARLA's Python API for world and actor management.
-- Implements real-time visualization with PyQt5 graphics.
-- Handles complex coordinate transformations between CARLA world coordinates and the UI map.
-- Provides efficient filtering of spawn points to avoid collisions on spawn.
-- Supports dynamic camera sensor attachment to vehicles for in-simulation camera views.
-- Manages actors lifecycle including safe destruction on exit.
-
-### Usage
-
-1. **Launching the Scene Manager**
-   - Run the `CarlaSceneManager` application script.
-   - The main window will open with a split view: a map visualization on the left and control panels on the right.
-
-2. **Map Selection**
-   - Pick the desired CARLA map from the "Select Map" dropdown.
-   - The environment will reset and load the chosen map.
-   - Spawn points and static environment elements will be updated accordingly.
-
-3. **Navigating the Map View**
-   - Use the mouse wheel to zoom in and out on the map.
-   - Click and drag the map to pan and explore different areas.
-   - Click on green spawn point circles to select spawn locations for actors.
-   - The selected spawn point is highlighted with a cyan circle.
-
-4. **Spawning Actors**
-   - Choose a blueprint from the "Select Blueprint" dropdown. This can be a vehicle, static prop, or building.
-   - Click "Spawn Selected Actor" to place it at the selected spawn point on the map.
-   - Spawn multiple random vehicles by entering a count and pressing "Spawn Random Vehicles".
-   - Spawn the ego vehicle by selecting a suitable vehicle blueprint and clicking "Spawn Ego Vehicle".
-   - Ego vehicle spawn position is saved to `ego_position.json` for persistence.
-
-5. **Vehicle List and Controls**
-   - The "Vehicles in World" list shows all spawned vehicles with their ID, type, speed, and location.
-   - Select a vehicle from the list to enable AI control buttons.
-   - Double-click a vehicle in the list to attach a camera sensor and follow it in the scene.
-   
-6. **AI Autopilot Management**
-   - Enable AI autopilot on the currently selected vehicle with "Enable AI on Selected Vehicle".
-   - Enable or disable AI autopilot on all vehicles except the ego vehicle via the checkbox.
-   - AI vehicles will operate autonomously with traffic manager support.
-
-7. **Manual Driving Control**
-   - After spawning the ego vehicle, press "Start Manual Control" to run the manual driving interface in a separate process.
-   - Use your Logitech steering wheel and pedal set to manually drive the ego vehicle within the CARLA simulation.
-   - The manual control process allows real-time interaction without blocking the scene manager UI.
-
-8. **SUMO Synchronization**
-   - Press "Start SUMO Traffic Control" to launch co-simulation with SUMO for advanced traffic scenarios.
-   - Ensure SUMO and required scripts are correctly set up in the configured working directory prior to use.
-
-9. **Scene Updates**
-   - The map view automatically refreshes at 20 FPS with updates on vehicle positions, velocities, traffic light states, and cameras.
-   - UI sliders allow fine control of view center and rotation yaw to adjust the displayed map region and orientation.
-
-10. **Exiting**
-    - On closing the window, all spawned actors (vehicles, cameras, static objects) are safely destroyed.
-    - Ego vehicle cleanup and camera destruction are handled gracefully.
-
----
-
-**Note:** For best performance, ensure the CARLA server is running and accessible at the configured host and port (`127.0.0.1:2000`). Also, have the Logitech steering wheel and pedal drivers installed with necessary calibration for smooth manual driving control.
-
-This scene manager serves as a powerful development tool for setting up and managing CARLA simulation scenarios.
+- Built with PyQt5 for responsive GUI and real-time visualization.
+- Utilizes CARLA's Python API for world and actor lifecycle management.
+- Converts CARLA world coordinates to UI map coordinates with appropriate scaling and panning.
+- Filters spawn points to avoid collisions on vehicle spawn.
+- Manages traffic manager parameters for AI vehicle behaviors.
+- Saves ego vehicle spawn location to a JSON file for persistence.
 
 ---
 
 ## Manual Driving with Logitech Steering Wheel and Pedal
 
-This project supports manual driving using a Logitech steering wheel and pedal set.
+This project supports manual driving of the ego vehicle using Logitech steering wheels and pedal sets on Linux.
 
-### Steps to Use
+### Instructions
 
-1. **Connect Your Logitech Steering Wheel and Pedals**
+1. Connect your Logitech steering wheel and pedals to your Linux system and verify they are detected and calibrated.
 
-2. **Run the Manual Driving Script**
-
-   With Carla running, execute:
+2. Start the CARLA simulator server:
 
    ```bash
-   python controller.py 
+   ./CarlaUE4.sh
    ```
 
-3. **Controls**
+3. Spawn the ego vehicle using the Scene Manager interface.
+
+4. Run the manual driving controller script:
+
+   ```bash
+   python controller.py
+   ```
+
+5. **Controls:**
 
    - Steering wheel controls steering.
-   - Pedals control acceleration and braking.
-   - L2 on the wheel controls reverse.
+   - Pedals control throttle and braking.
+   - The L2 pedal/button controls reverse gear.
 
 ---
 
 ## Usage
 
-- Make sure Carla simulator is running.
-- Activate your Python environment.
-- Run the manual driving script.
+1. **Launch the Scene Manager**
 
-```bash
-python manual_driving.py --input_device logitech
-```
+   Run the main application script of `CarlaSceneManager`. The window splits into a map visualization on the left and control panels on the right.
 
-Replace `logitech` with your device identifier if different.
+2. **Select Map**
+
+   Choose a CARLA map from the "Select Map" dropdown to load the desired environment.
+
+3. **Explore the Map**
+
+   - Zoom with mouse wheel.
+   - Pan by clicking and dragging.
+   - Click green circles representing spawn points to select a location for spawning vehicles or objects.
+   - The selected spawn point is visually highlighted.
+
+4. **Spawn Actors**
+
+   - Select a vehicle or static blueprint from the dropdown.
+   - Click "Spawn Selected Actor" to place it at the chosen spawn point.
+   - For bulk spawning, specify number of vehicles and click "Spawn Random Vehicles".
+   - Spawn the ego vehicle with "Spawn Ego Vehicle"; this vehicle is ready for manual control.
+
+5. **Manage Vehicles**
+
+   - View vehicles in the "Vehicles in World" list with detailed information.
+   - Select a vehicle to enable AI control options.
+   - Double-click a vehicle to attach a camera and follow it in the simulation.
+
+6. **Toggle AI Autopilot**
+
+   - Enable autopilot on the selected vehicle or all non-ego vehicles.
+   - AI vehicles navigate using CARLA's traffic manager.
+
+7. **Start Manual Driving**
+
+   Once the ego vehicle is spawned, click "Start Manual Control" to run the driving interface in a separate process. Use your Logitech wheel and pedals to drive manually.
+
+8. **SUMO Traffic Integration**
+
+   Use "Start SUMO Traffic Control" to begin synchronized traffic simulation if SUMO environment is configured.
+
+9. **Dynamic Scene Updates**
+
+   The map view updates at 20 FPS, reflecting vehicle movements, traffic lights, and sensor views.
+
+10. **Exit and Cleanup**
+
+    Closing the Scene Manager safely destroys all spawned actors and sensors including the ego vehicle.
 
 ---
 
 ## Troubleshooting
 
-- Ensure that the Carla server is running and accessible.
-- Verify that your Logitech steering wheel drivers are correctly installed and configured.
-- Check Python dependencies and Carla API compatibility.
-- If the wheel or pedals are not responding, test them on another application to ensure functionality.
+- Make sure the CARLA server is running and accessible on `127.0.0.1:2000`.
+- Verify Logitech steering wheel and pedals are working on your Linux system. Check with utilities like `jstest-gtk` or `evtest`.
+- Confirm all required Python dependencies are installed correctly and compatible.
+- Test the Logitech controller on other Linux applications to confirm hardware functionality.
+- Review console logs for errors related to actor spawning or manual control.
 
 ---
 
 ## Contributing
 
-Contributions are welcome! Please fork the repository and submit pull requests.
+Contributions and issues are welcome! Please fork the repository and submit pull requests.
 
 ---
 
@@ -221,7 +203,5 @@ This project is licensed under the MIT License.
 
 ---
 
-For more information, visit the [Carla official documentation](https://carla.readthedocs.io/).
-
-
-Would you like me to customize this further with specific commands or details from your project?
+For more detailed information, visit the official [CARLA documentation](https://carla.readthedocs.io/).
+```
