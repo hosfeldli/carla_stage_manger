@@ -41,7 +41,7 @@ class WorldLogger:
         self.world = world_wrapper.world
         if filename is None:
             timestamp_str = datetime.now().strftime('%Y%m%d_%H%M%S')
-            self.filename = f'carla_log_{timestamp_str}.json'
+            self.filename = f'logs/carla_log_{timestamp_str}.json'
         else:
             self.filename = filename
         self.flush_interval = flush_interval
