@@ -28,7 +28,7 @@ This project integrates manual driving controls into the CARLA autonomous drivin
 
 1. **Download CARLA Simulator**
 
-   Download version 0.9.15 or later from the official [CARLA Releases page](https://github.com/carla-simulator/carla/releases).
+   Download version 0.9.15 from the official [CARLA Releases page](https://github.com/carla-simulator/carla/releases).
 
 2. **Install CARLA on Linux**
 
