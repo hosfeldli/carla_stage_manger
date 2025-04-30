@@ -179,29 +179,5 @@ This project supports manual driving of the ego vehicle using Logitech steering 
 
     Closing the Scene Manager safely destroys all spawned actors and sensors including the ego vehicle.
 
----
 
-## Troubleshooting
 
-- Make sure the CARLA server is running and accessible on `127.0.0.1:2000`.
-- Verify Logitech steering wheel and pedals are working on your Linux system. Check with utilities like `jstest-gtk` or `evtest`.
-- Confirm all required Python dependencies are installed correctly and compatible.
-- Test the Logitech controller on other Linux applications to confirm hardware functionality.
-- Review console logs for errors related to actor spawning or manual control.
-
----
-
-## Contributing
-
-Contributions and issues are welcome! Please fork the repository and submit pull requests.
-
----
-
-## License
-
-This project is licensed under the MIT License.
-
----
-
-For more detailed information, visit the official [CARLA documentation](https://carla.readthedocs.io/).
-```
