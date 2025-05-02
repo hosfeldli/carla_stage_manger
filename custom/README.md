@@ -1,4 +1,4 @@
-# Carla Scene Manager - Detailed Documentation
+# Carla Scene Manager
 
 This document provides an in-depth explanation of the inner workings of `scene_manager.py`, clarifying its architecture, core components, and interactions with CARLA and the GUI.
 
