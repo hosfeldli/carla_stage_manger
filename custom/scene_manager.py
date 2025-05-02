@@ -12,9 +12,9 @@ import carla
 # Constants
 CARLA_HOST = '127.0.0.1'
 CARLA_PORT = 2000
-WINDOW_WIDTH = 1400
-WINDOW_HEIGHT = 900
-FPS = 20
+WINDOW_WIDTH = 2500
+WINDOW_HEIGHT = 1000
+FPS = 120
 DEFAULT_SCALE = 5.0  # pixels per meter for map visualization
 SPAWN_POINT_SELECT_DIST = 15  # pixels
 VEHICLE_LENGTH = 4.5  # meters approx
@@ -41,14 +41,12 @@ def draw_oriented_triangle(painter, center: QtCore.QPoint, yaw_deg: float, size:
 
 
 class CarlaSceneManager(QtWidgets.QMainWindow):
-
     MOVE_STEP = 1.0
     ROTATE_STEP = 5.0
 
     def __init__(self):
         super().__init__()
-
-        self.setWindowTitle('CARLA Scene Manager - Detailed View')
+        self.setWindowTitle('CARLA Scene Manager')
         self.setGeometry(100, 100, WINDOW_WIDTH, WINDOW_HEIGHT)
 
         # Initialize CARLA client and world
@@ -110,34 +108,28 @@ class CarlaSceneManager(QtWidgets.QMainWindow):
     def _clean_world(self):
         all_actors = self.world.get_actors()
         to_destroy = list(all_actors.filter('vehicle.*')) + \
-            list(all_actors.filter('walker.pedestrian.*')) + \
-            list(all_actors.filter('static.*'))
-
+                     list(all_actors.filter('walker.pedestrian.*')) + \
+                     list(all_actors.filter('static.*'))
         for actor in to_destroy:
             try:
                 actor.destroy()
             except Exception as e:
                 logging.warning(f"Failed to destroy actor {actor.id}: {e}")
-
         logging.info(f"Destroyed {len(to_destroy)} actors to clear the scene.")
-
         self.spawned_actors.clear()
         self.ego_actor = None
         self.selected_vehicle = None
-
         if getattr(self, 'follow_camera', None) and self.follow_camera and self.follow_camera.is_alive:
             try:
                 self.follow_camera.destroy()
             except Exception:
                 pass
-
         self.follow_camera = None
         self.following_actor = None
 
     def _get_static_buildings_and_props(self):
         self.static_buildings.clear()
         self.static_props.clear()
-
         all_statics = self.world.get_actors().filter('static.*')
         for actor in all_statics:
             bp_id = actor.type_id if hasattr(actor, 'type_id') else ''
@@ -158,14 +150,13 @@ class CarlaSceneManager(QtWidgets.QMainWindow):
     def init_ui(self):
         central_widget = QtWidgets.QWidget()
         self.setCentralWidget(central_widget)
-
         main_layout = QtWidgets.QHBoxLayout(central_widget)
         main_layout.setContentsMargins(8, 8, 8, 8)
         main_layout.setSpacing(8)
 
         # Left - Map view display
         self.map_view = QtWidgets.QLabel()
-        self.map_view.setFixedSize(WINDOW_WIDTH // 2, WINDOW_HEIGHT)
+        self.map_view.setFixedSize(int(WINDOW_WIDTH * 0.75), WINDOW_HEIGHT)
         self.map_view.setStyleSheet("background-color: #212121; border-radius: 5px;")
         self.map_view.setMouseTracking(True)
         self.map_view.mousePressEvent = self.map_mouse_press
@@ -207,7 +198,6 @@ class CarlaSceneManager(QtWidgets.QMainWindow):
             'View Center Y': (-500, 500),
             'Rotation Yaw': (0, 360),
         }
-
         for name in slider_names:
             control_layout.addWidget(self._create_label(name))
             slider = QtWidgets.QSlider(QtCore.Qt.Horizontal)
@@ -217,7 +207,6 @@ class CarlaSceneManager(QtWidgets.QMainWindow):
             slider.valueChanged.connect(self.slider_changed)
             control_layout.addWidget(slider)
             self.sliders[name] = slider
-
         self.update_viewcenter_sliders()
         self.update_sliders_from_transform()
 
@@ -230,9 +219,25 @@ class CarlaSceneManager(QtWidgets.QMainWindow):
         self.btn_spawn_ego.clicked.connect(self.spawn_ego)
         control_layout.addWidget(self.btn_spawn_ego)
 
-        self.btn_start_control = QtWidgets.QPushButton("Start Manual Control")
-        self.btn_start_control.clicked.connect(self.start_manual_control)
-        control_layout.addWidget(self.btn_start_control)
+        #self.btn_start_control = QtWidgets.QPushButton("Start Manual Control")
+        #self.btn_start_control.clicked.connect(self.start_manual_control)
+        #control_layout.addWidget(self.btn_start_control)
+
+        #
+        # --- Script Runner UI ---
+        #
+        control_layout.addWidget(self._create_label("Select Driving Script:"))
+
+        # ComboBox - dynamically filled from scripts/*.py excluding those with 'log'
+        self.script_combo = QtWidgets.QComboBox()
+        self.available_scripts = []  # List of tuples (display_name, script_full_path)
+        self.load_scripts()
+        control_layout.addWidget(self.script_combo)
+
+        # Run script button
+        self.btn_run_script = QtWidgets.QPushButton("Run Script")
+        self.btn_run_script.clicked.connect(self.run_selected_script)
+        control_layout.addWidget(self.btn_run_script)
 
         # Vehicle list
         control_layout.addWidget(self._create_label("Vehicles in World:"))
@@ -247,7 +252,6 @@ class CarlaSceneManager(QtWidgets.QMainWindow):
         self.btn_enable_ai.clicked.connect(self.enable_ai_on_selected)
         self.btn_enable_ai.setEnabled(False)
         control_layout.addWidget(self.btn_enable_ai)
-
         self.chk_enable_ai_all = QtWidgets.QCheckBox("Enable AI on All Vehicles (Except Ego)")
         self.chk_enable_ai_all.stateChanged.connect(self.ai_all_checkbox_changed)
         control_layout.addWidget(self.chk_enable_ai_all)
@@ -267,7 +271,6 @@ class CarlaSceneManager(QtWidgets.QMainWindow):
         self.btn_spawn_random = QtWidgets.QPushButton("Spawn Random Vehicles")
         self.btn_spawn_random.clicked.connect(self.spawn_random_vehicles)
         control_layout.addWidget(self.btn_spawn_random)
-
         control_layout.addStretch()
 
         # SUMO control button
@@ -277,6 +280,68 @@ class CarlaSceneManager(QtWidgets.QMainWindow):
 
         # Apply dark theme stylesheet
         self.apply_dark_theme()
+
+    def load_scripts(self):
+        """
+        Load all python scripts in the 'scripts' directory (relative to this script),
+        excluding any that contain 'log' in their filename (case insensitive).
+        Fill the self.available_scripts list and populate self.script_combo.
+        """
+        self.script_combo.clear()
+        self.available_scripts.clear()
+
+        # Determine the scripts directory relative to this file
+        scripts_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "scripts")
+        if not os.path.exists(scripts_dir):
+            logging.warning(f"Scripts directory does not exist: {scripts_dir}")
+            return
+
+        # List all .py files excluding those with 'log' in name
+        files = []
+        for f in os.listdir(scripts_dir):
+            f_lower = f.lower()
+            if f.endswith(".py") and "log" not in f_lower:
+                files.append(f)
+
+        files.sort()  # Sort alphabetically
+
+        for script_file in files:
+            full_path = os.path.join(scripts_dir, script_file)
+            display_name = script_file  # Can strip .py if you want
+            self.available_scripts.append((display_name, full_path))
+            self.script_combo.addItem(display_name)
+
+        if not self.available_scripts:
+            self.script_combo.addItem("(No scripts found)")
+
+    def run_selected_script(self):
+        """
+        Run the selected script from the console in a separate process.
+        Requires ego vehicle to be spawned.
+        """
+        index = self.script_combo.currentIndex()
+        if index < 0 or index >= len(self.available_scripts):
+            QtWidgets.QMessageBox.warning(self, "No Script Selected", "Please select a valid script to run.")
+            return
+
+        display_name, script_path = self.available_scripts[index]
+        if not os.path.isfile(script_path):
+            QtWidgets.QMessageBox.warning(self, "Script Missing", f"Script file not found:\n{script_path}")
+            return
+
+        if not self.ego_actor or not self.ego_actor.is_alive:
+            QtWidgets.QMessageBox.warning(self, "Ego Vehicle Missing",
+                                          "You must spawn the ego vehicle before running a driving script.")
+            return
+
+        try:
+            spawn_args = [sys.executable, script_path]
+            subprocess.Popen(spawn_args)
+            QtWidgets.QMessageBox.information(self, "Script Launched",
+                                              f"Script '{display_name}' launched successfully in a separate process.")
+        except Exception as e:
+            QtWidgets.QMessageBox.critical(self, "Run Script Error",
+                                           f"Failed to launch script '{display_name}':\n{str(e)}")
 
     def _create_label(self, text):
         label = QtWidgets.QLabel(text)
@@ -436,17 +501,14 @@ class CarlaSceneManager(QtWidgets.QMainWindow):
             self.update_sliders_from_transform()
             self.update_viewcenter_sliders()
             self.update_scene()
-
             if self.follow_camera and self.follow_camera.is_alive:
                 try:
                     self.follow_camera.destroy()
                 except Exception:
                     pass
-                self.follow_camera = None
-                self.following_actor = None
-
+            self.follow_camera = None
+            self.following_actor = None
             logging.info(f"Map {map_name} loaded successfully")
-
         except Exception as e:
             QtWidgets.QMessageBox.critical(self, "Map Load Error", f"Failed to load map {map_name}: {e}")
 
@@ -475,12 +537,10 @@ class CarlaSceneManager(QtWidgets.QMainWindow):
         for v in self.get_all_vehicles():
             loc = v.get_location()
             occupied_locations.add((loc.x, loc.y, loc.z))
-
         filtered = []
         for sp in self.spawn_points:
             sp_loc = sp.location
             occupied = False
-
             for ox, oy, oz in occupied_locations:
                 dx = ox - sp_loc.x
                 dy = oy - sp_loc.y
@@ -489,10 +549,8 @@ class CarlaSceneManager(QtWidgets.QMainWindow):
                 if dist < 2.0:
                     occupied = True
                     break
-
             if not occupied:
                 filtered.append(sp)
-
         return filtered
 
     def carla_transform_to_qpoint(self, transform):
@@ -513,7 +571,6 @@ class CarlaSceneManager(QtWidgets.QMainWindow):
                 self.update_sliders_from_transform()
                 logging.info(f"Selected spawn point at {sp.location}")
                 break
-
         if event.button() == QtCore.Qt.LeftButton:
             self.dragging = True
             self.last_mouse_pos = event.pos()
@@ -547,11 +604,9 @@ class CarlaSceneManager(QtWidgets.QMainWindow):
         for v in all_vehicles:
             if v.is_alive:
                 vehicles.append(v)
-
         # Optionally ensure ego vehicle is included
         if self.ego_actor and self.ego_actor.is_alive and self.ego_actor not in vehicles:
             vehicles.append(self.ego_actor)
-
         return vehicles
 
     def update_vehicle_list(self):
@@ -559,7 +614,6 @@ class CarlaSceneManager(QtWidgets.QMainWindow):
         self.vehicle_list_widget.clear()
         vehicles = self.get_all_vehicles()
         self.vehicle_actors_map = {}
-
         for v in vehicles:
             trans = v.get_transform()
             loc = trans.location
@@ -568,9 +622,7 @@ class CarlaSceneManager(QtWidgets.QMainWindow):
             label = f"ID:{v.id} {v.type_id} Speed:{speed_kph:.1f} kph Loc:({loc.x:.1f}, {loc.y:.1f})"
             self.vehicle_list_widget.addItem(label)
             self.vehicle_actors_map[label] = v
-
         self.vehicle_list_widget.blockSignals(False)
-
         if self.selected_vehicle and self.selected_vehicle.is_alive:
             items = self.vehicle_list_widget.findItems(f"ID:{self.selected_vehicle.id}", QtCore.Qt.MatchStartsWith)
             if items:
@@ -611,7 +663,6 @@ class CarlaSceneManager(QtWidgets.QMainWindow):
             "--tls-manager", "carla"
         ]
         print(f"Running SUMO synchronization with command: {cmd}")
-
         try:
             subprocess.Popen(cmd, cwd=working_dir)
             QtWidgets.QMessageBox.information(self, "SUMO Synchronization", "SUMO synchronization launched successfully.")
@@ -620,36 +671,31 @@ class CarlaSceneManager(QtWidgets.QMainWindow):
 
     def follow_selected_vehicle(self, item):
         """
-        Double-click on vehicle - follow with camera sensor, center view, and show in UI.
-        """
+         Double-click on vehicle - follow with camera sensor, center view, and show in UI.
+         """
         actor = self.vehicle_actors_map.get(item.text(), None)
         if not actor or not actor.is_alive:
             QtWidgets.QMessageBox.warning(self, "Error", "Vehicle is no longer alive!")
             return
-
         # Clean up old camera
         if self.follow_camera and self.follow_camera.is_alive:
             try:
                 self.follow_camera.destroy()
             except Exception:
                 pass
-            self.follow_camera = None
-
+        self.follow_camera = None
         self.following_actor = actor
-
         # Spawn a camera sensor and attach to actor
         bp_cam = self.blueprint_library.find('sensor.camera.rgb')
         bp_cam.set_attribute('image_size_x', '800')
         bp_cam.set_attribute('image_size_y', '600')
         bp_cam.set_attribute('fov', '90')
-
         cam_trans = carla.Transform(
             carla.Location(x=-6, z=2.5),  # 6m behind, 2.5m above
             carla.Rotation(pitch=-10)  # Slight downward pitch
         )
         self.follow_camera = self.world.spawn_actor(bp_cam, cam_trans, attach_to=actor)
         logging.info(f"Spawned camera sensor to follow {actor.id}")
-
         # Center view on actor
         self.view_center = actor.get_transform().location
         self.update_viewcenter_sliders()
@@ -663,13 +709,11 @@ class CarlaSceneManager(QtWidgets.QMainWindow):
     def ai_all_checkbox_changed(self, state):
         self.ai_all_enabled = state == QtCore.Qt.Checked
         vehicles = self.get_all_vehicles()
-
         for v in vehicles:
             if self.ego_actor and v.id == self.ego_actor.id:
                 continue
             if not v.is_alive:
                 continue
-
             if self.ai_all_enabled:
                 self._enable_vehicle_ai(v)
             else:
@@ -690,7 +734,6 @@ class CarlaSceneManager(QtWidgets.QMainWindow):
             traffic_manager.global_percentage_speed_difference(0)
             traffic_manager.distance_to_leading_vehicle(vehicle, 0.5)
             logging.info(f"Enabled AI on vehicle ID {vehicle.id}")
-
         except Exception as e:
             logging.error(f"Failed to enable AI on vehicle ID {vehicle.id}: {e}")
 
@@ -698,17 +741,14 @@ class CarlaSceneManager(QtWidgets.QMainWindow):
         count = self.input_vehicle_count.value()
         vehicle_bps = list(self.blueprint_library.filter('vehicle.*'))
         free_spawn_points = self.filtered_spawn_points()
-
         if len(free_spawn_points) < count:
             QtWidgets.QMessageBox.warning(
                 self, "Error",
                 f"Not enough free spawn points! Requested: {count}, available: {len(free_spawn_points)}"
             )
             return
-
         chosen_points = random.sample(free_spawn_points, count)
         spawned = 0
-
         for i in range(count):
             bp = random.choice(vehicle_bps)
             transform = chosen_points[i]
@@ -717,33 +757,27 @@ class CarlaSceneManager(QtWidgets.QMainWindow):
                 self.spawned_actors.append(actor)
                 spawned += 1
                 logging.info(f"Spawned random vehicle {bp.id} at {transform.location}")
-
         if spawned == 0:
             QtWidgets.QMessageBox.warning(self, "Error", "Failed to spawn any random vehicles!")
 
     def spawn_selected_actor(self):
         bp_id = self.bp_combo.currentText()
         bp = self.bp_map[bp_id]
-
         if bp.id.startswith('static.'):
             location = self.placement_transform.location
             waypoint = self.map.get_waypoint(location, project_to_road=True)
             if waypoint:
                 location.z = waypoint.transform.location.z
                 self.placement_transform.location = location
-
             transform = self.placement_transform
-
         elif bp.id.startswith('vehicle.'):
             transform = self.placement_transform
         else:
             transform = self.placement_transform
-
         actor = self.world.try_spawn_actor(bp, transform)
         if actor:
             self.spawned_actors.append(actor)
             logging.info(f"Spawned actor {bp.id} at {transform.location}")
-
             # If it's a static prop, add to static_props for rendering
             if bp.id.startswith('static.'):
                 self.static_props.append(actor)
@@ -759,22 +793,17 @@ class CarlaSceneManager(QtWidgets.QMainWindow):
                 self.ego_actor.destroy()
             except Exception as e:
                 logging.warning(f"Failed destroying previous ego vehicle: {e}")
-
             self.ego_actor = None
 
         bp_id = self.bp_combo.currentText()
         bp = self.bp_map[bp_id]
-
         if bp.has_attribute('role_name'):
             bp.set_attribute('role_name', 'hero')
         else:
             logging.warning(f"Blueprint {bp.id} does not have 'role_name' attribute.")
-
         transform = self.placement_transform
         print(f"Spawning ego vehicle {bp.id} at {transform.location}")
-
         ego = self.world.try_spawn_actor(bp, transform)
-
         if ego:
             self.ego_actor = ego
             logging.info(f"Ego vehicle spawned: {ego.type_id} at {ego.get_transform().location}")
@@ -782,7 +811,6 @@ class CarlaSceneManager(QtWidgets.QMainWindow):
             self.update_sliders_from_transform()
             self.view_center = self.placement_transform.location
             self.update_viewcenter_sliders()
-
             # Save ego position to file
             ego_position = {
                 "x": transform.location.x,
@@ -801,7 +829,6 @@ class CarlaSceneManager(QtWidgets.QMainWindow):
         if not self.ego_actor or not self.ego_actor.is_alive:
             QtWidgets.QMessageBox.warning(self, "Error", "You must spawn the ego vehicle first!")
             return
-
         if self.ai_all_enabled:
             logging.info("AI already enabled on all vehicles via checkbox.")
         elif self.ai_queue:
@@ -810,9 +837,7 @@ class CarlaSceneManager(QtWidgets.QMainWindow):
                     self._enable_vehicle_ai(vehicle)
             logging.info(f"Enabled AI on {len(self.ai_queue)} vehicles before manual control.")
             self.ai_queue.clear()
-
         spawn_args = [sys.executable, 'controller.py']  # Modify cwd if needed
-
         try:
             QtWidgets.QMessageBox.information(
                 self,
@@ -821,7 +846,6 @@ class CarlaSceneManager(QtWidgets.QMainWindow):
             )
         except Exception as e:
             logging.error(f"Error showing information box: {e}")
-
         QtCore.QTimer.singleShot(100, lambda: subprocess.Popen(spawn_args))
 
     def closeEvent(self, event):
@@ -830,30 +854,25 @@ class CarlaSceneManager(QtWidgets.QMainWindow):
                 self.follow_camera.destroy()
             except Exception:
                 pass
-
         self.follow_camera = None
         self.following_actor = None
-
         for actor in self.spawned_actors:
             if actor.is_alive:
                 try:
                     actor.destroy()
                 except Exception:
                     pass
-
         if self.ego_actor and self.ego_actor.is_alive:
             try:
                 self.ego_actor.destroy()
             except Exception:
                 pass
-
         event.accept()
 
     def update_scene(self):
         pixmap = QtGui.QPixmap(self.map_view.width(), self.map_view.height())
         pixmap.fill(QtCore.Qt.white)
         painter = QtGui.QPainter(pixmap)
-
         # Draw sidewalks
         pen_sidewalk = QtGui.QPen(QtGui.QColor(170, 170, 170))
         brush_sidewalk = QtGui.QBrush(QtGui.QColor(200, 200, 200))
@@ -919,7 +938,6 @@ class CarlaSceneManager(QtWidgets.QMainWindow):
         for wp in waypoints:
             key = (wp.road_id, wp.lane_id)
             waypoint_groups.setdefault(key, []).append(wp)
-
         pen_route = QtGui.QPen(QtGui.QColor(0, 0, 200), 1)
         painter.setPen(pen_route)
         for key, wps in waypoint_groups.items():
@@ -939,14 +957,12 @@ class CarlaSceneManager(QtWidgets.QMainWindow):
             velocity = actor.get_velocity()
             speed = math.sqrt(velocity.x ** 2 + velocity.y ** 2 + velocity.z ** 2)
             speed_kph = 3.6 * speed
-
             if self.ego_actor and actor.id == self.ego_actor.id:
                 color = QtGui.QColor(0, 128, 255)
                 shadow_color = QtGui.QColor(0, 70, 150, 100)
             else:
                 color = QtGui.QColor(255, 64, 64)
                 shadow_color = QtGui.QColor(150, 20, 20, 100)
-
             self.draw_vehicle_rect(painter, p, tr.rotation.yaw, self.scale, color, shadow_color)
             self.draw_velocity_arrow(painter, p, tr.rotation.yaw, speed, self.scale)
 
@@ -955,7 +971,6 @@ class CarlaSceneManager(QtWidgets.QMainWindow):
         for tl in traffic_lights:
             if not tl.is_alive:
                 continue
-
             state = tl.get_state()
             if state == carla.TrafficLightState.Red:
                 color = QtGui.QColor(255, 0, 0, 200)
@@ -1024,15 +1039,12 @@ class CarlaSceneManager(QtWidgets.QMainWindow):
     def draw_velocity_arrow(self, painter, center: QtCore.QPoint, yaw_deg: float, speed_mps: float, scale):
         if speed_mps <= 0.01:
             return
-
         arrow_len = min(30, speed_mps * 3 * scale / 5)
         angle_rad = math.radians(-yaw_deg)
         end_x = center.x() + arrow_len * math.cos(angle_rad)
         end_y = center.y() + arrow_len * math.sin(angle_rad)
-
         painter.setPen(QtGui.QPen(QtGui.QColor(0, 255, 0), 2))
         painter.drawLine(center, QtCore.QPointF(end_x, end_y))
-
         left_angle = angle_rad + math.radians(150)
         right_angle = angle_rad - math.radians(150)
         head_len = arrow_len * 0.25
@@ -1040,24 +1052,20 @@ class CarlaSceneManager(QtWidgets.QMainWindow):
         left_y = end_y + head_len * math.sin(left_angle)
         right_x = end_x + head_len * math.cos(right_angle)
         right_y = end_y + head_len * math.sin(right_angle)
-
         points = [
             QtCore.QPointF(end_x, end_y),
             QtCore.QPointF(left_x, left_y),
             QtCore.QPointF(right_x, right_y)
         ]
-
         painter.setBrush(QtGui.QColor(0, 255, 0))
         painter.drawPolygon(QtGui.QPolygonF(points))
 
     def update(self):
         self.update_scene()
-
         # UI map auto-center on followed actor if following
         if self.following_actor and self.following_actor.is_alive:
             self.view_center = self.following_actor.get_transform().location
             self.update_viewcenter_sliders()
-
         # If following actor dies, also remove camera
         if self.following_actor and not self.following_actor.is_alive:
             if self.follow_camera and self.follow_camera.is_alive:
@@ -1065,7 +1073,6 @@ class CarlaSceneManager(QtWidgets.QMainWindow):
                     self.follow_camera.destroy()
                 except Exception:
                     pass
-
             self.follow_camera = None
             self.following_actor = None
 
