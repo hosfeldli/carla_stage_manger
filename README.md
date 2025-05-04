@@ -73,19 +73,19 @@ This project integrates manual driving controls into the CARLA autonomous drivin
 
 The `CarlaSceneManager` is a PyQt5-based graphical user interface that enables detailed control over the CARLA simulation environment including visualization, actor management, AI toggling, and manual driving setup.
 
+## How to Run
+
+Run the scene manager with `python scene_manager.py', run this from inside of the custom directory within the home directory of the project.
+
 ### Key Features
 
-- Connects to CARLA server at `127.0.0.1:2000` and loads the simulation world and map.
-- Cleans up the simulation world by removing all existing vehicles, pedestrians, and static objects.
 - Allows selecting spawn points directly on an interactive map for precise vehicle and object placement.
 - Visualizes sidewalks, buildings, props, vehicles (including ego vehicle), traffic lights, and cameras on a scalable and zoomable map interface.
 - Supports spawning vehicles or static props, including random vehicle spawns.
-- Spawns an ego vehicle with the designated "hero" role for manual control.
+- Spawns an ego vehicle.
 - Enables AI autopilot on selected vehicles or all vehicles except ego.
-- Follows selected vehicles with an attached camera sensor, showing vehicle perspective.
 - Launches manual driving control in a separate process to interactively drive the ego vehicle.
 - Integrates with SUMO for traffic co-simulation and synchronization.
-- Provides clean shutdown by safely destroying all actors and sensors on exit.
 
 ### Technical Details
 
