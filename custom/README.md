@@ -172,6 +172,14 @@ Rendering occurs in `update_scene()` which creates a QPixmap and draws using QPa
 
 ---
 
+### 9. **Script Management via UI**
+
+– Scripts can be called from the UI using the scripts folder.
+
+– All files placed within that file can be called from the UI.
+
+---
+
 ## Summary of Data Flow
 
 1. The app initializes and connects to CARLA.
@@ -187,14 +195,6 @@ Rendering occurs in `update_scene()` which creates a QPixmap and draws using QPa
 7. All data flow is coordinated to provide smooth scene management and visualization.
 
 ---
-
-## Tips for Editing
-
-- When adding UI elements, keep consistent styling via `apply_dark_theme()`.
-- Add new actor types by modifying blueprint library filters in `load_blueprints()`.
-- Adjust map drawing scale or colors in `update_scene()` for better clarity or aesthetics.
-- Carefully handle actor references and destruction to avoid dangling pointers.
-- Use logs (`logging` module) liberally to trace execution and debug.
 
 ---
 
