@@ -75,7 +75,7 @@ The `CarlaSceneManager` is a PyQt5-based graphical user interface that enables d
 
 ## How to Run
 
-Run the scene manager with `python scene_manager.py', run this from inside of the custom directory within the home directory of the project.
+Run the scene manager with `python scene_manager.py`, run this from inside of the custom directory within the home directory of the project.
 
 ### Key Features
 
