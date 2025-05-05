@@ -73,6 +73,8 @@ This project integrates manual driving controls into the CARLA autonomous drivin
 
 The `CarlaSceneManager` is a PyQt5-based graphical user interface that enables detailed control over the CARLA simulation environment including visualization, actor management, AI toggling, and manual driving setup.
 
+https://youtu.be/H2guuxdLKOw
+
 ## How to Run
 
 Run the scene manager with `python scene_manager.py`, run this from inside of the custom directory within the home directory of the project.
